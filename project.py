@@ -32,6 +32,15 @@ print("\nDataset shape after dropping low variance columns:", data.shape)
 print("\nValue Counts for OTP (first 20):")
 print(data['OTP'].value_counts().head(20))
 print("\nData type of OTP:", data['OTP'].dtype)
+
+# Clean and convert the 'OTP' column to numeric (float)
+if data['OTP'].dtype == 'object':
+    data['OTP'] = data['OTP'].str.rstrip('%').astype('float') / 100.0
+    print("\n'OTP' column cleaned and converted to numeric (decimal).")
+else:
+    print("\n'OTP' column is already numeric.")
+
+print("\nData type of OTP after conversion:", data['OTP'].dtype)
 print("\nMin OTP:", data['OTP'].min())
 print("\nMax OTP:", data['OTP'].max())
 
