@@ -44,8 +44,8 @@ print("\nData type of OTP after conversion:", data['OTP'].dtype)
 print("\nMin OTP:", data['OTP'].min())
 print("\nMax OTP:", data['OTP'].max())
 
-# Create a binary target variable based on OTP
-otp_threshold = 90.0 # Can be adjusted
+# Create a binary target variable based on OTP (decimal percentage)
+otp_threshold = 0.90 # Can be adjusted (90% as decimal)
 data['High OTP'] = (data['OTP'] > otp_threshold).astype(int)
 
 print("\nValue Counts for High_OTP (Target Variable):")
