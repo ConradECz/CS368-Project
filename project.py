@@ -57,3 +57,38 @@ elif data['Month'].dtype == 'int64' or data['Month'].dtype == 'float64':
     # If already numeric, we might want to treat it as categorical for some models
     data['Month'] = data['Month'].astype('category')
 
+# Encode 'Branch/Line' (categorical feature)
+print("\nValue Counts for Branch/Line:")
+print(data['Branch/Line'].value_counts())
+data = pd.get_dummies(data, columns=['Branch/Line'], drop_first=True)
+
+# Convert Peak hour columns to binary (if they are not already)
+for col in ['AM Peak', 'PM Peak', 'Off Peak']:
+    if col in data.columns and data[col].dtype == 'object':
+        print(f"\nValue Counts for {col}:")
+        print(data[col].value_counts())
+        # Assuming values are like 'Yes'/'No' or 'True'/'False'
+        data[col] = data[col].apply(lambda x: 1 if str(x).lower() in ['yes', 'true'] else 0)
+    elif col in data.columns and data[col].dtype in ['int64', 'float64']:
+        # Already numeric, might need to ensure it's binary (0 or 1)
+        data[col] = data[col].astype(int)
+
+print("\nMissing Values after initial handling:")
+print(data.isnull().sum())
+
+print("\nProcessed Data Info (so far):")
+data.info()
+
+# Now have binary target variable. Splitting the data into features (X) and target (y)
+# and then into training and testing sets.
+
+# Example of splitting the data:
+from sklearn.model_selection import train_test_split
+
+X = data.drop('High_OTP', axis=1)
+y = data['High_OTP']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print("\nShape of training data:", X_train.shape, y_train.shape)
+print("Shape of testing data:", X_test.shape, y_test.shape)
