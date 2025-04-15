@@ -1,10 +1,32 @@
 import pandas as pd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 try:
     data = pd.read_csv("MTA_Metro-North_On-Time_Performance__Beginning_2020.csv")
+    print("Data loaded successfully.")
 except FileNotFoundError:
     print("Error: CSV file not found. Please make sure the file path is correct.")
     exit()
+
+#Print the columns immediately after loading
+print("\nColumns in the DataFrame after loading:")
+print(data.columns)
+
+# Function to clean percentage columns
+def clean_percentage_column(df, column_name):
+    if column_name in df.columns and df[column_name].dtype == 'object':
+        print(f"\nAttempting to clean and convert '{column_name}'...")
+        try:
+            df[column_name] = df[column_name].str.rstrip('%').astype('float') / 100.0
+            print(f"'{column_name}' column cleaned and converted to numeric (decimal).")
+            print(f"Data type of '{column_name}' after conversion:", df[column_name].dtype)
+        except Exception as e:
+            print(f"Error during '{column_name}' cleaning/conversion: {e}")
+    elif column_name in df.columns:
+        print(f"\n'{column_name}' column is already numeric.")
+    else:
+        print(f"\n'{column_name}' column not found!")
+    return df
+# Clean '
 # Display initial information about the dataset
 print(data.head)
 
