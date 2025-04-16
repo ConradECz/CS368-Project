@@ -94,10 +94,17 @@ svm_model = SVC(random_state=42, probability=True)
 dt_model = DecisionTreeClassifier(random_state=42)
 rf_model = RandomForestClassifier(random_state=42)
 
-X = data.drop('High_OTP', axis=1)
-y = data['High_OTP']
+# 10-fold Cross-Validation and Evaluation
+cv = KFold(n_splits=10, shuffle=True, random_state=42)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+def evaluate_model_cv(model, X, y, cv):
+    accuracy_scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy')
+    auc_scores = cross_val_score(model, X, y, cv=cv, scoring='roc_auc')
+    print(f"{type(model).__name__} - Mean Accuracy (CV): {accuracy_scores.mean():.4f} (+/- {accuracy_scores.std():.4f})")
+    print(f"{type(model).__name__} - Mean AUC (CV): {auc_scores.mean():.4f} (+/- {auc_scores.std():.4f})")
+    return model
 
-print("\nShape of training data:", X_train.shape, y_train.shape)
-print("Shape of testing data:", X_test.shape, y_test.shape)
+print("\nEvaluating models using 10-fold cross-validation:")
+svm_model_cv = evaluate_model_cv(svm_model, X_train_eval, y_train_eval, cv)
+dt_model_cv = evaluate_model_cv(dt_model, X_train_eval, y_train_eval, cv)
+rf_model_cv = evaluate_model_cv(rf_model, X_train_eval, y_train_eval, cv)
