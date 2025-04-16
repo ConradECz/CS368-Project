@@ -1,5 +1,14 @@
 import pandas as pd
-# import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split, cross_val_score, KFold, GridSearchCV
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, roc_auc_score, classification_report, roc_curve
+import matplotlib.pyplot as plt
+# from aequitas.group import Group
+# from aequitas.plotting import Plot
+# from aequitas.bias import Bias
+# from aequitas.fairness import Fairness
 try:
     data = pd.read_csv("MTA_Metro-North_On-Time_Performance__Beginning_2020.csv")
     print("Data loaded successfully.")
@@ -7,9 +16,22 @@ except FileNotFoundError:
     print("Error: CSV file not found. Please make sure the file path is correct.")
     exit()
 
-#Print the columns immediately after loading
-print("\nColumns in the DataFrame after loading:")
-print(data.columns)
+print("Dataset Info:")
+data.info()
+
+print("\nSummary Statistics:")
+print(data.describe)
+
+# Identify attributes with insufficient variability
+insufficient_variance_cols =[]
+for col in data.columns:
+    if data[col].nunique() <= 1:
+        insufficient_variance_cols.append(col)
+print(f"\nAttributes with insufficient variability: {insufficient_variance_cols}")
+
+# Drop columns with insufficient variability:
+data = data.drop(columns=insufficient_variance_cols)
+print("\nDataset shape after dropping low variance columns:", data.shape)
 
 # Function to clean percentage columns
 def clean_percentage_column(df, column_name):
@@ -26,95 +48,51 @@ def clean_percentage_column(df, column_name):
     else:
         print(f"\n'{column_name}' column not found!")
     return df
-# Clean '
-# Display initial information about the dataset
-print(data.head)
 
-print("Dataset Info:")
-data.info()
+data = clean_percentage_column(data, 'OTP')
+data = clean_percentage_column(data, 'AM Peak')
+data = clean_percentage_column(data, 'PM Peak')
 
-print("\nSummary Statistics:")
-print(data.describe)
-
-print("\nValue Counts for Object (Categorical) Features:")
-for col in data.select_dtypes(include='object').columns:
-    print(f"\n{col}:\n{data[col].value_counts()}")
-
-# Identify attributes with insufficient variability
-insufficient_variance_cols =[]
-for col in data.columns:
-    if data[col].nunique() <= 1:
-        insufficient_variance_cols.append(col)
-print(f"\nAttributes with insufficient variability: {insufficient_variance_cols}")
-
-# Drop columns with insufficient variability:
-data = data.drop(columns=insufficient_variance_cols)
-print("\nDataset shape after dropping low variance columns:", data.shape)
-
-print("\nValue Counts for OTP (first 20):")
-print(data['OTP'].value_counts().head(20))
-print("\nData type of OTP:", data['OTP'].dtype)
-
-# Clean and convert the 'OTP' column to numeric (float)
-if data['OTP'].dtype == 'object':
-    data['OTP'] = data['OTP'].str.rstrip('%').astype('float') / 100.0
-    print("\n'OTP' column cleaned and converted to numeric (decimal).")
+# Create target variable 'High_OTP'
+if 'OTP' in data.columns:
+    otp_threshold = 0.90
+    data['High_OTP'] = (data['OTP'] > otp_threshold).astype(int)
+    print("\n'High_OTP' target variable created.")
 else:
-    print("\n'OTP' column is already numeric.")
+    print("\n'OTP' column not found, cannot create 'High_OTP'.")
+    exit()
 
-print("\nData type of OTP after conversion:", data['OTP'].dtype)
-print("\nMin OTP:", data['OTP'].min())
-print("\nMax OTP:", data['OTP'].max())
+# Handle 'Month'
+if 'Month' in data.columns:
+    if data['Month'].dtype == 'object':
+        month_mapping = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+                         'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
+        data['Month_Numeric'] = data['Month'].replace(month_mapping)
+        data.drop('Month', axis=1, inplace=True, errors='ignore')
+    elif data['Month'].dtype in ['int64', 'float64']:
+        data['Month'] = data['Month'].astype('category')
+else:
+    print("'Month' column not found.")
 
-# Create a binary target variable based on OTP (decimal percentage)
-otp_threshold = 0.90 # Can be adjusted (90% as decimal)
-data['High OTP'] = (data['OTP'] > otp_threshold).astype(int)
+# Encode 'Branch/Line'
+data = pd.get_dummies(data, columns=['Branch/Line'], drop_first=True, errors='ignore')
 
-print("\nValue Counts for High_OTP (Target Variable):")
-print(data['High_OTP'].value_counts())
+# Drop rows with NaN in the target variable after preprocessing
+data.dropna(subset=['High_OTP'], inplace=True)
 
-# Handle potential missing values in OTP
-print("\nMissing values in OTP:", data['OTP'].isnull().sum())
-data.dropna(subset=['OTP'], inplace=True)
+# Separate features and target
+X = data.drop('High_OTP', axis=1, errors='ignore')
+y = data['High_OTP']
 
-# Convert 'Month' to a numerical or categorical representation if needed
-print("\nValue Counts for Month:")
-print(data['Month'].value_counts())
-if data['Month'].dtype == 'object':
-    month_mapping = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
-    data['Month_Numeric'] = data['Month'].replace(month_mapping)
-    data.drop('Month', axis=1, inplace=True)
-elif data['Month'].dtype == 'int64' or data['Month'].dtype == 'float64':
-    # If already numeric, we might want to treat it as categorical for some models
-    data['Month'] = data['Month'].astype('category')
+# Split data for evaluation (used in Phase III)
+X_train_eval, X_test_eval, y_train_eval, y_test_eval = train_test_split(X, y, test_size=0.3, random_state=42)
 
-# Encode 'Branch/Line' (categorical feature)
-print("\nValue Counts for Branch/Line:")
-print(data['Branch/Line'].value_counts())
-data = pd.get_dummies(data, columns=['Branch/Line'], drop_first=True)
+# Phase 2
 
-# Convert Peak hour columns to binary (if they are not already)
-for col in ['AM Peak', 'PM Peak', 'Off Peak']:
-    if col in data.columns and data[col].dtype == 'object':
-        print(f"\nValue Counts for {col}:")
-        print(data[col].value_counts())
-        # Assuming values are like 'Yes'/'No' or 'True'/'False'
-        data[col] = data[col].apply(lambda x: 1 if str(x).lower() in ['yes', 'true'] else 0)
-    elif col in data.columns and data[col].dtype in ['int64', 'float64']:
-        # Already numeric, might need to ensure it's binary (0 or 1)
-        data[col] = data[col].astype(int)
-
-print("\nMissing Values after initial handling:")
-print(data.isnull().sum())
-
-print("\nProcessed Data Info (so far):")
-data.info()
-
-# Now have binary target variable. Splitting the data into features (X) and target (y)
-# and then into training and testing sets.
-
-# Example of splitting the data:
-from sklearn.model_selection import train_test_split
+# Initialize models
+svm_model = SVC(random_state=42, probability=True)
+dt_model = DecisionTreeClassifier(random_state=42)
+rf_model = RandomForestClassifier(random_state=42)
 
 X = data.drop('High_OTP', axis=1)
 y = data['High_OTP']
