@@ -39,7 +39,7 @@ insufficient_variance_cols = [col for col in data.columns if data[col].nunique()
 print(f"\nAttributes with insufficient variability: {insufficient_variance_cols}")
 
 # Drop low-variance columns
-data.drop(columns=insufficient_variance_cols, errors='ignore', inplace=True)
+data.drop(columns=insufficient_variance_cols, inplace=True)
 print("\nDataset shape after dropping low-variance columns:", data.shape)
 
 # Convert Month column from date string to numeric month
@@ -68,10 +68,10 @@ data['High_OTP'] = (data['OTP'] > otp_threshold).astype(int)
 print("\n'High_OTP' target variable created.")
 
 # Encode categorical column 'Branch_Line'
-data = pd.get_dummies(data, columns=['Branch_Line'], drop_first=True, errors='ignore')
+data = pd.get_dummies(data, columns=['Branch_Line'], drop_first=True)
 
 # Separate features and target
-X = data.drop('High_OTP', axis=1, errors='ignore')
+X = data.drop('High_OTP', axis=1)
 y = data['High_OTP']
 
 # Split data for evaluation
