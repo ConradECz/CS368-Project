@@ -108,3 +108,24 @@ print("\nEvaluating models using 10-fold cross-validation:")
 svm_model_cv = evaluate_model_cv(svm_model, X_train_eval, y_train_eval, cv)
 dt_model_cv = evaluate_model_cv(dt_model, X_train_eval, y_train_eval, cv)
 rf_model_cv = evaluate_model_cv(rf_model, X_train_eval, y_train_eval, cv)
+
+# Phase 3 - Evaluation
+
+# Train the models on the training set
+svm_model.fit(X_train_eval, y_train_eval)
+dt_model.fit(X_train_eval, y_train_eval)
+rf_model.fit(X_train_eval, y_train_eval)
+
+# Make predictions on the test set
+svm_pred = svm_model.predict(X_test_eval)
+svm_pred_proba = svm_model.predict_proba(X_test_eval)[:, 1]
+dt_pred = dt_model.predict(X_test_eval)
+dt_pred_proba = dt_model.predict_proba(X_test_eval)[:, 1]
+rf_pred = rf_model.predict(X_test_eval)
+rf_pred_proba = rf_model.predict_proba(X_test_eval)[:, 1]
+
+# Evaluate performance on the test set
+print("\nPerformance on the Test Set:")
+print(f"SVM - Accuracy: {accuracy_score(y_test_eval, svm_pred):.4f}, AUC: {roc_auc_score(y_test_eval, svm_pred_proba):.4f}")
+print(f"Decision Tree - Accuracy: {accuracy_score(y_test_eval, dt_pred):.4f}, AUC: {roc_auc_score(y_test_eval, dt_pred_proba):.4f}")
+print(f"Random Forest - Accuracy: {accuracy_score(y_test_eval, rf_pred):.4f}, AUC: {roc_auc_score(y_test_eval, rf_pred_proba):.4f}")
