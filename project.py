@@ -9,9 +9,13 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 from aequitas.group import Group
+print("Aequitas is working!")
 from aequitas.plotting import Plot
+print("Aequitas is working!")
 from aequitas.bias import Bias
+print("Aequitas is working!")
 from aequitas.fairness import Fairness
+print("Aequitas is working!")
 
 print("\n--- Phase I - Preprocessing Phase ---")
 
@@ -162,7 +166,8 @@ plt.show()
 print("\n--- Phase IV - Bias and Fairness ---")
 
 # Assuming 'Branch/Line' is a potential protected attribute
-if 'Branch/Line_Harlem Line' in X_test_eval.columns and 'Branch/Line_Hudson Line' in X_test_eval.columns and 'Branch/Line_New Haven Line' in X_test_eval.columns:
+branch_cols = [col for col in X_test_eval.columns if col.startswith('Branch/Line_')]
+if branch_cols:
     best_model_name = 'Random Forest'  # Based on typical performance, adjust if needed
     best_model = trained_models[best_model_name]
     y_pred_proba_best = best_model.predict_proba(X_test_eval)[:, 1]
@@ -173,8 +178,9 @@ if 'Branch/Line_Harlem Line' in X_test_eval.columns and 'Branch/Line_Hudson Line
         'score': y_pred_proba_best,
         'label_value': y_test_eval.values,
         'predicted_value': y_pred_best,
-        'Branch': X_test_eval[['Branch/Line_Harlem Line', 'Branch/Line_Hudson Line', 'Branch/Line_New Haven Line']].idxmax(axis=1).str.replace('Branch/Line_', '')
+        'Branch': X_test_eval[branch_cols].idxmax(axis=1).str.replace('Branch/Line_', '')
     })
+
 
     # Group object
     aqg = Group()
