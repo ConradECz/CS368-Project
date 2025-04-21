@@ -147,36 +147,87 @@ for name, model in trained_models.items():
     print(f"AUC: {auc:.4f}")
     print("Classification Report:\n", report)
 
+# Plotting ROC Curves
+plt.figure(figsize=(8, 6))
+for name, result in test_results.items():
+    fpr, tpr, _ = roc_curve(y_test_eval, result['y_pred_proba'])
+    plt.plot(fpr, tpr, label=f'{name} (AUC = {result["auc"]:.2f})')
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic (ROC) Curves')
+plt.legend()
+plt.show()
 
-def evaluate_model_cv(model, X, y, cv):
-    accuracy_scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy')
-    auc_scores = cross_val_score(model, X, y, cv=cv, scoring='roc_auc')
-    print(f"{type(model).__name__} - Mean Accuracy (CV): {accuracy_scores.mean():.4f} (+/- {accuracy_scores.std():.4f})")
-    print(f"{type(model).__name__} - Mean AUC (CV): {auc_scores.mean():.4f} (+/- {auc_scores.std():.4f})")
-    return model
+print("\n--- Phase IV - Bias and Fairness ---")
 
-print("\nEvaluating models using 10-fold cross-validation:")
-svm_model_cv = evaluate_model_cv(svm_model, X_train_eval, y_train_eval, cv)
-dt_model_cv = evaluate_model_cv(dt_model, X_train_eval, y_train_eval, cv)
-rf_model_cv = evaluate_model_cv(rf_model, X_train_eval, y_train_eval, cv)
+# Assuming 'Branch/Line' is a potential protected attribute
+if 'Branch/Line_Harlem Line' in X_test_eval.columns and 'Branch/Line_Hudson Line' in X_test_eval.columns and 'Branch/Line_New Haven Line' in X_test_eval.columns:
+    best_model_name = 'Random Forest'  # Based on typical performance, adjust if needed
+    best_model = trained_models[best_model_name]
+    y_pred_proba_best = best_model.predict_proba(X_test_eval)[:, 1]
+    y_pred_best = best_model.predict(X_test_eval)
 
-# Phase 3 - Evaluation
+    # Create a DataFrame for Aequitas
+    aequitas_df = pd.DataFrame({
+        'score': y_pred_proba_best,
+        'label_value': y_test_eval.values,
+        'predicted_value': y_pred_best,
+        'Branch': X_test_eval[['Branch/Line_Harlem Line', 'Branch/Line_Hudson Line', 'Branch/Line_New Haven Line']].idxmax(axis=1).str.replace('Branch/Line_', '')
+    })
 
-# Train the models on the training set
-svm_model.fit(X_train_eval, y_train_eval)
-dt_model.fit(X_train_eval, y_train_eval)
-rf_model.fit(X_train_eval, y_train_eval)
+    # Group object
+    aqg = Group()
+    group_df, _ = aqg.get_group_metric(aequitas_df, 'Branch', 'label_value', 'predicted_value')
 
-# Make predictions on the test set
-svm_pred = svm_model.predict(X_test_eval)
-svm_pred_proba = svm_model.predict_proba(X_test_eval)[:, 1]
-dt_pred = dt_model.predict(X_test_eval)
-dt_pred_proba = dt_model.predict_proba(X_test_eval)[:, 1]
-rf_pred = rf_model.predict(X_test_eval)
-rf_pred_proba = rf_model.predict_proba(X_test_eval)[:, 1]
+    # Bias object
+    aqb = Bias()
+    bdf = aqb.get_bias_result(group_df, 'Branch', 'label_value', 'predicted_value')
 
-# Evaluate performance on the test set
-print("\nPerformance on the Test Set:")
-print(f"SVM - Accuracy: {accuracy_score(y_test_eval, svm_pred):.4f}, AUC: {roc_auc_score(y_test_eval, svm_pred_proba):.4f}")
-print(f"Decision Tree - Accuracy: {accuracy_score(y_test_eval, dt_pred):.4f}, AUC: {roc_auc_score(y_test_eval, dt_pred_proba):.4f}")
-print(f"Random Forest - Accuracy: {accuracy_score(y_test_eval, rf_pred):.4f}, AUC: {roc_auc_score(y_test_eval, rf_pred_proba):.4f}")
+    # Fairness object
+    aqf = Fairness()
+    fdf = aqf.get_fairness_result(bdf)
+
+    print(f"\nAequitas Bias and Fairness Analysis (assuming 'Branch' is a protected attribute, using {best_model_name}):")
+    print(fdf)
+
+    # Plotting (optional)
+    aqp = Plot()
+    p = aqp.plot_group_metric_all(group_df, metrics=['tpr', 'fpr', 'precision'], ncols=3)
+    plt.show()
+    p = aqp.plot_bias_all(bdf, fairness_threshold=0.8, ncols=3)
+    plt.show()
+
+else:
+    print("\n'Branch/Line' columns not found for bias and fairness analysis.")
+
+print("\n--- Phase V - Feature Ranking/Selection ---")
+
+best_model_name = 'Random Forest' # Adjust if a different model performed best
+best_model = trained_models[best_model_name]
+
+if isinstance(best_model, RandomForestClassifier):
+    feature_importances = best_model.feature_importances_
+    feature_names = X_train_eval.columns
+    sorted_importances = sorted(zip(feature_names, feature_importances), key=lambda x: x[1], reverse=True)
+
+    print(f"\nFeature Importances (from {best_model_name}):")
+    for feature, importance in sorted_importances:
+        print(f"{feature}: {importance:.4f}")
+
+    # Example: Select top N features (e.g., top 5)
+    top_n = 5
+    selected_features = [feature for feature, importance in sorted_importances[:top_n]]
+    print(f"\nTop {top_n} most important features: {selected_features}")
+
+elif isinstance(best_model, Pipeline) and isinstance(best_model.named_steps['svm'], SVC) and best_model.named_steps['svm'].kernel == 'linear':
+    feature_importances = best_model.named_steps['svm'].coef_[0]
+    feature_names = X_train_eval.columns
+    sorted_importances = sorted(zip(feature_names, abs(feature_importances)), key=lambda x: x[1], reverse=True)
+
+    print(f"\nFeature Importances (from Linear SVM):")
+    for feature, importance in sorted_importances:
+        print(f"{feature}: {importance:.4f}")
+
+else:
+    print(f"\nFeature ranking not directly applicable to the best performing model type ({type(best_model).__name__}) with the current settings.")
