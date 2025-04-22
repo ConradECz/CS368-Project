@@ -133,7 +133,47 @@ plt.title('Receiver Operating Characteristic (ROC) Curves')
 plt.legend()
 plt.show()
 
-print("\n--- Phase IV - Feature Ranking/Selection ---")
+print("\n--- Phase IV - Bias and Fairness ---")
+
+# Assuming 'Branch/Line' is a potential protected attribute
+if 'Branch/Line_Harlem Line' in X_test_eval.columns and 'Branch/Line_Hudson Line' in X_test_eval.columns and 'Branch/Line_New Haven Line' in X_test_eval.columns:
+    best_model_name = 'Random Forest' # Based on typical performance, adjust if needed
+    best_model = trained_models[best_model_name]
+    y_pred_proba_best = best_model.predict_proba(X_test_eval)[:, 1]
+    y_pred_best = best_model.predict(X_test_eval)
+
+    # Create a DataFrame for Aequitas
+    aequitas_df = pd.DataFrame ({
+        'score': y_pred_proba_best,
+        'label_value': y_test_eval.values,
+        'predicted_value': y_pred_best,
+        'Branch': X_test_eval[['Branch/Line_Harlem Line', 'Branch/Line_Hudson Line', 'Branch/Line_New Haven Line']].idxmax(axis=1).str. replace('Branch/Line_', '')
+    })
+    # Group object
+    aqg = Group()
+    group_df, _ = aqg.get_group_metric(aequitas_df, 'Branch', 'label_value', 'predicted_value')
+
+    # Bias object
+    aqb = Bias()
+    bdf = aqb.get_bias_result(group_df, 'Branch', 'label_value', 'predicted_value')
+
+    # Fairness object
+    aqf = Fairness()
+    fdf = aqf.get_fairness_result(bdf)
+
+    print(f"\nAequitas Bias and Fairness Analysis (assuming 'Branch' is a protected attribute, using {best_model_name}):")
+    print(fdf)
+
+    # Plotting (optional)
+    aqp = Plot()
+    p = aqp.plot_group_metric_all(group_df, metrics=['tpr', 'fpr', 'precision'], ncols=3)
+    plt.show()
+    p = aqp.plot_bias_all(bdf, fairness_threshold=0.8, ncols=3)
+    plt.show()
+else:
+    print("\n'Branch/Line' columns not found for bias and fairness analysis.")
+
+print("\n--- Phase V - Feature Ranking/Selection ---")
 
 best_model_name = 'Random Forest'
 best_model = trained_models[best_model_name]
@@ -151,5 +191,13 @@ if isinstance(best_model, RandomForestClassifier):
     top_n = 5
     selected_features = [feature for feature, importance in sorted_importances[:top_n]]
     print(f"\nTop {top_n} most important features: {selected_features}")
+elif isinstance(best_model, Pipeline) and isinstance(best_model.named_steps['svm'], SVC) and best_model.named_steps['svm'].kernel == 'linear':
+    feature_importances = best_model.named_steps['svm'].coef_[0]
+    feature_names = X_train_eval.columns
+    sorted_importances = sorted(zip(feature_names, abs(feature_importances)), key=lambda x: x[1], reverse=True)
 
-print("\nFinalized code with preprocessing fixes and enhancements included!")
+    print(f"\nFeature Importances (from Linear SVM):")
+    for feature, importance in sorted_importances:
+        print(f"{feature}: {importance:.4f}")
+else:
+    print(f"\nFeature ranking not directly applicable to the best performing model type ({type(best_model).__name__}) with the current settings.")
