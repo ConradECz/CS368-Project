@@ -191,6 +191,7 @@ if isinstance(best_model, RandomForestClassifier):
     top_n = 5
     selected_features = [feature for feature, importance in sorted_importances[:top_n]]
     print(f"\nTop {top_n} most important features: {selected_features}")
+    plt.show()
 elif isinstance(best_model, Pipeline) and isinstance(best_model.named_steps['svm'], SVC) and best_model.named_steps['svm'].kernel == 'linear':
     feature_importances = best_model.named_steps['svm'].coef_[0]
     feature_names = X_train_eval.columns
